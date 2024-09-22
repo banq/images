@@ -1,0 +1,22 @@
+User-agent:Mediapartners-Google
+Disallow:
+User-agent: *
+Disallow: /nav/
+Disallow: /message/
+Disallow: /account/
+Disallow: /common/
+Disallow: /shortmessage/
+Disallow: /query/
+Disallow: /images/
+Disallow: /article/
+Disallow: /*.shtml$
+Disallow: /*.jsp$
+Disallow: /*.css
+Disallow: /*.jsp?
+Disallow: /*.jsp
+Disallow: /*.png
+Disallow: /*.jpg
+Disallow: /*.gif
+Disallow: /*.ico
+Disallow: /*.js
+Disallow: /testWeb/
