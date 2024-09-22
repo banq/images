@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<!-- saved from url=(0070)http://www.mokacoding.com/blog/functor-applicative-monads-in-pictures/ -->
+<html lang="/simgs/course/mokacodingslim-081711.css"/simgs/course/mokacodinganalytics.js"></script><script type="text/javascript" async="" src="http://mokacoding.disqus.com/embed.js"></script><link rel="stylesheet" type="text/css" href="chrome-extension://fidicgekecdkdmkjghdgadgdmcfodfid/themes/default/content.css"></head><body><div class="page"><div class="row-12"><div class="col-12 header"><h1 class="brand"><a href="http://www.mokacoding.com/">mokacoding</a></h1><div class="punchline">unit and acceptance testing, automation, productivity</div><div class="links"><a href="http://www.mokacoding.com/archive.html">Archive</a><a href="http://www.mokacoding.com/tags.html">Tags</a><a href="http://giovannilodi.com/" target="_blank">About</a><a href="http://www.mokacoding.com/blog/functor-applicative-monads-in-pictures/#subscribe">Subscribe</a><a href="http://www.mokacoding.com/feed.xml"><i class="fa fa-rss"></i></a></div></div><div class="col-12"><div class="post-container"><h2 class="post-title"><a href="http://www.mokacoding.com/blog/functor-applicative-monads-in-pictures">Swift Functors, Applicatives, and Monads in Pictures</a></h2><p class="post-meta"><span class="post-date">Tue Jul 14 2015&nbsp;</span></p><div class="post"><blockquote>
+<p>This is a translation of <a href="http://adit.io/posts/2013-04-17-functors,_applicatives,_and_monads_in_pictures.html" target="_blank">Functors, Applicatives, And Monads In Pictures</a> from <a href="https://www.haskell.org/" target="_blank">Haskell</a> into Swift. </p>
+<p>I don't want to take any merit for writing this, I only went through the fun exercise of translating the code snippets in Swift. </p>
+<p>If you enjoy this post be sure to say thanks to the author of the original version: <a href="http://adit.io/index.html" target="_blank">Aditya Bhargava</a>, <a href="https://twitter.com/_egonschiele" target="_blank">@_egonschiele</a> on Twitter.</p>
+<p>Despite all the hype about it, <strong>Swift is not a functional language</strong>. This means that we need to write a bit of extra code to achieve the same results that language like Haskell have with built-in operators.</p>
+<p>You can find a Playground with all the code from the article <a href="https://github.com/mokacoding/Swift-Functors-Applicative-Monads-In-Pictures-Playground" target="_blank">on GitHub</a>.</p>
+<p>Finally, don't worry if you find the content hard to grasp. I had to read the original version a number of times to wrap my head around it, plus a lot of mess around with the Swift code.</p>
+</blockquote>
+<p>Here’s a simple value:</p>
+<p><img src="/simgs/course/mokacodingvalue.png" alt=""></p>
+<p>And we know how to apply a function to this value:</p>
+<p><img src="/simgs/course/mokacodingvalue_apply.png" alt=""></p>
+<p>Simple enough. Lets extend this by saying that any value can be in a context. For now you can think of a context as a box that you can put a value in:</p>
+<p><img src="/simgs/course/mokacodingvalue_and_context.png" alt=""></p>
+<p>Now when you apply a function to this value, you’ll get different results <strong>depending on the context</strong>. This is the idea that Functors, Applicatives, Monads, Arrows etc are all based on. The <code>Optional</code> type defines two related contexts:</p>
+<blockquote>
+<p><strong>Note:</strong> the pictures use Maybe (Just | None) from Haskell, which correspond to Swift's Optional .Some and .None.</p>
+</blockquote>
+<p><img src="/simgs/course/mokacodingcontext.png" alt=""></p>
+<pre><code class=" hljs swift"><span class="hljs-class"><span class="hljs-keyword">enum</span> <span class="hljs-title">Optional</span>&lt;<span class="hljs-title">T</span>&gt; </span>{
+  <span class="hljs-keyword">case</span> <span class="hljs-type">None</span>
+  <span class="hljs-keyword">case</span> <span class="hljs-type">Some</span>(<span class="hljs-type">T</span>)
+}
+</code></pre>
+<p>In a second we will see how function application is different when something is a <code>.Some(T)</code> versus a <code>.None</code>. First let’s talk about Functors!</p>
+<h1 id="functors">Functors</h1>
+<p>When a value is wrapped in a context, you can’t apply a normal function to it:</p>
+<p><img src="/simgs/course/mokacodingno_fmap_ouch.png" alt=""></p>
+<p>This is where <code>map</code> comes in (<code>fmap</code> in Haskell). <code>map</code> is from the street, <code>map</code> is hip to contexts. <code>map</code> knows how to apply functions to values that are wrapped in a context. For example, suppose you want to apply a function that adds 3 to <code>.Some(2)</code>. Use <code>map</code>:</p>
+<pre><code class=" hljs swift"><span class="hljs-func"><span class="hljs-keyword">func</span> <span class="hljs-title">plusThree</span><span class="hljs-params">(addend: Int)</span></span> -&gt; <span class="hljs-type">Int</span> {
+  <span class="hljs-keyword">return</span> addend + <span class="hljs-number">3</span>
+}
+
+<span class="hljs-type">Optional</span>.<span class="hljs-type">Some</span>(<span class="hljs-number">2</span>).<span class="hljs-built_in">map</span>(plusThree)
+<span class="hljs-comment">// =&gt; .Some(5)</span>
+</code></pre>
+<p>or with a simple syntax using Swift's autoclosure:</p>
+<pre><code class=" hljs swift"><span class="hljs-type">Optional</span>.<span class="hljs-type">Some</span>(<span class="hljs-number">2</span>).<span class="hljs-built_in">map</span> { $<span class="hljs-number">0</span> + <span class="hljs-number">3</span> }
+<span class="hljs-comment">// =&gt; .Some(5)</span>
+</code></pre>
+<p><img src="/simgs/course/mokacodingfmap_apply.png" alt=""></p>
+<p><strong>Bam!</strong> <code>map</code> shows us how it’s done! But how does <code>map</code> know how to apply the function?</p>
+<h1 id="just-what-is-a-functor-really-">Just what is a Functor, really?</h1>
+<p>A Functor is any type that defines how <code>map</code> (<code>fmap</code> in Haskell) applies to it. Here’s how <code>map</code> works:</p>
+<p><img src="/simgs/course/mokacodingfmap_def.png" alt=""></p>
+<p>So we can do this:</p>
+<pre><code class=" hljs swift"><span class="hljs-type">Optional</span>.<span class="hljs-type">Some</span>(<span class="hljs-number">2</span>).<span class="hljs-built_in">map</span> { $<span class="hljs-number">0</span> + <span class="hljs-number">3</span> }
+<span class="hljs-comment">// =&gt; .Some(5)</span>
+</code></pre>
+<p>And <code>map</code> magically applies this function, because <code>Optional</code> is a Functor. It specifies how <code>map</code> applies to <code>Some</code>s and <code>None</code>s:</p>
+<pre><code class=" hljs swift"><span class="hljs-func"><span class="hljs-keyword">func</span> <span class="hljs-title">map</span><span class="hljs-generics">&lt;U&gt;</span><span class="hljs-params">(f: T -&gt; U)</span></span> -&gt; <span class="hljs-type">U</span>? {
+  swifth <span class="hljs-keyword">self</span> {
+  <span class="hljs-keyword">case</span> .<span class="hljs-type">Some</span>(<span class="hljs-keyword">let</span> x): <span class="hljs-keyword">return</span> f(x)
+  <span class="hljs-keyword">case</span> .<span class="hljs-type">None</span>: <span class="hljs-keyword">return</span> .<span class="hljs-type">None</span>
+}
+</code></pre>
+<p>Here’s what is happening behind the scenes when we write <code>Optional.Some(2).map { $0 + 3 }</code>:</p>
+<p><img src="/simgs/course/mokacodingfmap_just.png" alt=""></p>
+<p>So then you’re like, alright <code>map</code>, please apply <code>{ $0 + 3 }</code> to a <code>.None</code>?</p>
+<p><img src="/simgs/course/mokacodingfmap_nothing.png" alt=""></p>
+<pre><code class=" hljs swift"><span class="hljs-type">Optional</span>.<span class="hljs-type">None</span>.<span class="hljs-built_in">map</span> { $<span class="hljs-number">0</span> + <span class="hljs-number">3</span> }
+<span class="hljs-comment">// =&gt; .None</span>
+</code></pre>
+<p><img src="/simgs/course/mokacodingbill.png" alt=""></p>
+<p><em>Bill O’Reilly being totally ignorant about the Maybe functor</em></p>
+<p>Like Morpheus in the Matrix, <code>map</code> knows just what to do; you start with <code>None</code>, and you end up with <code>None</code>! <code>map</code> is zen. Now it makes sense why the <code>Optional</code> type exists. For example, here’s how you work with a database record in a language without <code>Optional</code>, like Ruby:</p>
+<pre><code class=" hljs ruby">let post = <span class="hljs-constant">Post</span>.findByID(<span class="hljs-number">1</span>)
+<span class="hljs-keyword">if</span> post != <span class="hljs-keyword">nil</span> {
+  <span class="hljs-keyword">return</span> post.title
+} <span class="hljs-keyword">else</span> {
+  <span class="hljs-keyword">return</span> <span class="hljs-keyword">nil</span>
+}
+</code></pre>
+<p>But in with Swift using the <code>Optional</code> functor:</p>
+<pre><code class=" hljs swift">findPost(<span class="hljs-number">1</span>).<span class="hljs-built_in">map</span>(getPostTitle)
+</code></pre>
+<p>If <code>findPost(1)</code> returns a post, we will get the title with <code>getPostTitle</code>. If it returns <code>None</code>, we will return <code>None</code>! </p>
+<p>We can even define an infix operator for <code>map</code>, <code>&lt;^&gt;</code> (<code>&lt;$&gt;</code> in Haskell), and do this instead:</p>
+<pre><code class=" hljs swift"><span class="hljs-keyword">infix</span> <span class="hljs-keyword">operator</span> &lt;^&gt; { <span class="hljs-keyword">associativity</span> <span class="hljs-keyword">left</span> }
+
+<span class="hljs-func"><span class="hljs-keyword">func</span> <span class="hljs-generics">&lt;^&gt;</span><span class="hljs-generics">&lt;T, U&gt;</span><span class="hljs-params">(f: T -&gt; U, a: T?)</span></span> -&gt; <span class="hljs-type">U</span>? {
+  <span class="hljs-keyword">return</span> a.<span class="hljs-built_in">map</span>(f)
+}
+
+getPostTitle &lt;^&gt; findPost(<span class="hljs-number">1</span>)
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> we have to use <code>&lt;^&gt;</code> because <code>&lt;$&gt;</code> wouldn't compile.</p>
+</blockquote>
+<p>Here’s another example: what happens when you apply a function to an array?</p>
+<p><img src="/simgs/course/mokacodingfmap_list.png" alt=""></p>
+<p>Arrays are functors too!</p>
+<p>Okay, okay, one last example: what happens when you apply a function to another function?</p>
+<pre><code class=" hljs swift"><span class="hljs-built_in">map</span>({ $<span class="hljs-number">0</span> + <span class="hljs-number">2</span> }, { $<span class="hljs-number">0</span> + <span class="hljs-number">3</span> })
+<span class="hljs-comment">// =&gt; ???</span>
+</code></pre>
+<p>Here's a function:</p>
+<p><img src="/simgs/course/mokacodingfunction_with_value.png" alt=""></p>
+<p>Here’s a function applied to another function:</p>
+<p><img src="/simgs/course/mokacodingfmap_function.png" alt=""></p>
+<p>The result is just another function!</p>
+<pre><code class=" hljs swift"><span class="hljs-keyword">typealias</span> <span class="hljs-type">IntFunction</span> = <span class="hljs-type">Int</span> -&gt; <span class="hljs-type">Int</span>
+
+<span class="hljs-func"><span class="hljs-keyword">func</span> <span class="hljs-title">map</span><span class="hljs-params">(f: IntFunction, <span class="hljs-number">_</span> g: IntFunction)</span></span> -&gt; <span class="hljs-type">IntFunction</span> {
+  <span class="hljs-keyword">return</span> { x <span class="hljs-keyword">in</span> f(g(x)) }
+}
+
+<span class="hljs-keyword">let</span> foo = <span class="hljs-built_in">map</span>({ $<span class="hljs-number">0</span> + <span class="hljs-number">2</span> }, { $<span class="hljs-number">0</span> + <span class="hljs-number">3</span> })
+foo(<span class="hljs-number">10</span>)
+<span class="hljs-comment">// =&gt; 15</span>
+</code></pre>
+<p>So functions are Functors too! When you use fmap on a function, you’re just doing function composition!</p>
+<h1 id="applicatives">Applicatives</h1>
+<p>Applicatives take it to the next level. With an applicative, our values are wrapped in a context, just like Functors:</p>
+<p><img src="/simgs/course/mokacodingvalue_and_context.png" alt=""></p>
+<p>But our functions are wrapped in a context too!</p>
+<p><img src="/simgs/course/mokacodingfunction_and_context.png" alt=""></p>
+<p>Yeah. Let that sink in. Applicatives don’t kid around. Unlike Haskell, Swift doesn't have <em>yet</em> a built-in way to deal with Applicative. But it is very easy to add one! We can define an <code>apply</code> function for every type supporting Applicative, which knows how to apply a function wrapped in the context of the type to a value wrapped in the same context:</p>
+<pre><code class=" hljs swift"><span class="hljs-class"><span class="hljs-keyword">extension</span> <span class="hljs-title">Optional</span> </span>{
+  <span class="hljs-func"><span class="hljs-keyword">func</span> <span class="hljs-title">apply</span><span class="hljs-generics">&lt;U&gt;</span><span class="hljs-params">(f: <span class="hljs-params">(T -&gt; U)</span></span></span>?) -&gt; <span class="hljs-type">U</span>? {
+    <span class="hljs-keyword">switch</span> f {
+      <span class="hljs-keyword">case</span> .<span class="hljs-type">Some</span>(<span class="hljs-keyword">let</span> someF): <span class="hljs-keyword">return</span> <span class="hljs-keyword">self</span>.<span class="hljs-built_in">map</span>(someF)
+      <span class="hljs-keyword">case</span> .<span class="hljs-type">None</span>: <span class="hljs-keyword">return</span> .<span class="hljs-type">None</span>
+    }
+  }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">extension</span> <span class="hljs-title">Array</span> </span>{
+  <span class="hljs-func"><span class="hljs-keyword">func</span> <span class="hljs-title">apply</span><span class="hljs-generics">&lt;U&gt;</span><span class="hljs-params">(fs: [Element -&gt; U])</span></span> -&gt; [<span class="hljs-type">U</span>] {
+    <span class="hljs-keyword">var</span> result = [<span class="hljs-type">U</span>]()
+      <span class="hljs-keyword">for</span> f <span class="hljs-keyword">in</span> fs {
+        <span class="hljs-keyword">for</span> element <span class="hljs-keyword">in</span> <span class="hljs-keyword">self</span>.<span class="hljs-built_in">map</span>(f) {
+          result.append(element)
+        }
+      }
+      <span class="hljs-keyword">return</span> result
+    }
+}
+</code></pre>
+<p>If both <code>self</code> and the function are <code>.Some</code>, then the function is applied to the unwrapped option, otherwise <code>.None</code> is returned. <em>Also note that because the optional type is defined in terms of <code>Optional&lt;T&gt;</code> we only need to specify the generic type <code>U</code> in <code>apply</code>s signature.</em></p>
+<p>We can also define <code>&lt;*&gt;</code>, to do the same thing:</p>
+<pre><code class=" hljs swift"><span class="hljs-keyword">infix</span> <span class="hljs-keyword">operator</span> &lt;*&gt; { <span class="hljs-keyword">associativity</span> <span class="hljs-keyword">left</span> }
+
+<span class="hljs-func"><span class="hljs-keyword">func</span> <span class="hljs-generics">&lt;*&gt;</span><span class="hljs-generics">&lt;T, U&gt;</span><span class="hljs-params">(f: <span class="hljs-params">(T -&gt; U)</span></span></span>?, a: <span class="hljs-type">T</span>?) -&gt; <span class="hljs-type">U</span>? {
+  <span class="hljs-keyword">return</span> a.apply(f)
+}
+
+<span class="hljs-func"><span class="hljs-keyword">func</span> <span class="hljs-generics">&lt;*&gt;</span><span class="hljs-generics">&lt;T, U&gt;</span><span class="hljs-params">(f: [T -&gt; U], a: [T])</span></span> -&gt; [<span class="hljs-type">U</span>] {
+  <span class="hljs-keyword">return</span> a.apply(f)
+}
+</code></pre>
+<p><img src="/simgs/course/mokacodingapplicative_just.png" alt=""></p>
+<p>i.e:</p>
+<pre><code class=" hljs swift"><span class="hljs-type">Optional</span>.<span class="hljs-type">Some</span>({ $<span class="hljs-number">0</span> + <span class="hljs-number">3</span> }) &lt;*&gt; <span class="hljs-type">Optional</span>.<span class="hljs-type">Some</span>(<span class="hljs-number">2</span>)
+<span class="hljs-comment">// =&gt; 5</span>
+</code></pre>
+<p>Using <code>&lt;*&gt;</code> can lead to some interesting situations. For example:</p>
+<pre><code class=" hljs swift">
+[ { $<span class="hljs-number">0</span> + <span class="hljs-number">3</span> }, { $<span class="hljs-number">0</span> * <span class="hljs-number">2</span> } ] &lt;*&gt; [<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>]
+<span class="hljs-comment">// =&gt; [ 4, 5, 6, 2, 4, 6 ]</span>
+</code></pre>
+<p><img src="/simgs/course/mokacodingapplicative_list.png" alt=""></p>
+<blockquote>
+<p><strong>Note:</strong> the original article now shows how Applicatives are more powerful than Functors in that they allow function application with multiple parameters. Again this is not feasible in vanilla Swift, but we can work around it by defining the function we want to handle in a <a href="https://en.wikipedia.org/wiki/Currying" target="_blank">curried way</a>. </p>
+</blockquote>
+<p>Here’s something you can do with Applicatives that you can’t do with Functors. How do you apply a function that takes two arguments to two wrapped values?</p>
+<pre><code class=" hljs swift"><span class="hljs-func"><span class="hljs-keyword">func</span> <span class="hljs-title">curriedAddition</span><span class="hljs-params">(a: Int)</span></span>(b: <span class="hljs-type">Int</span>) -&gt; <span class="hljs-type">Int</span> {
+  <span class="hljs-keyword">return</span> a + b
+}
+
+curriedAddition &lt;^&gt; <span class="hljs-type">Optional</span>(<span class="hljs-number">2</span>) &lt;^&gt; <span class="hljs-type">Optional</span>(<span class="hljs-number">3</span>)
+<span class="hljs-comment">// =&gt; COMPILER ERROR: Value of optional type '(Int -&gt; Int)? not unwrapped; did you mean to use '!' or '??'</span>
+</code></pre>
+<p>Applicatives:</p>
+<pre><code class=" hljs swift">curriedAddition &lt;^&gt; <span class="hljs-type">Optional</span>(<span class="hljs-number">2</span>) &lt;*&gt; <span class="hljs-type">Optional</span>(<span class="hljs-number">3</span>)
+</code></pre>
+<p><code>Applicative</code> pushes <code>Functor</code> aside. “Big boys can use functions with any number of arguments,” it says. “Armed with <code>&lt;^&gt;</code> and <code>&lt;*&gt;</code>, I can take any function that expects any number of unwrapped values. Then I pass it all wrapped values, and I get a wrapped value out! AHAHAHAHAH!”</p>
+<pre><code class=" hljs swift"><span class="hljs-func"><span class="hljs-keyword">func</span> <span class="hljs-title">curriedTimes</span><span class="hljs-params">(a: Int)</span></span>(b: <span class="hljs-type">Int</span>) -&gt; <span class="hljs-type">Int</span> {
+  <span class="hljs-keyword">return</span> a * b
+}
+
+curriedTimes &lt;^&gt; <span class="hljs-type">Optional</span>(<span class="hljs-number">5</span>) &lt;*&gt; <span class="hljs-type">Optional</span>(<span class="hljs-number">3</span>)
+</code></pre>
+<h1 id="monads">Monads</h1>
+<p>How to learn about Monads:</p>
+<ol>
+<li>Get a PhD in computer science.</li>
+<li>Throw it away because you don’t need it for this section!</li>
+</ol>
+<p>Monads add a new twist.</p>
+<p>Functors apply a function to a wrapped value:</p>
+<p><img src="/simgs/course/mokacodingfmap.png" alt=""></p>
+<p>Applicatives apply a wrapped function to a wrapped value:</p>
+<p><img src="/simgs/course/mokacodingapplicative.png" alt=""></p>
+<p>Monads apply a function that returns a wrapped value to a wrapped value. Monads have a function <code>|</code> (&gt;&gt;= in Haskell) (pronounced “bind”) to do this.</p>
+<p>Monads have a function <code>flatMap</code> (<code>liftM</code> in Haskell) to do this. And we can define an infix operator <code>&gt;&gt;-</code> (<code>&gt;&gt;=</code> in Haskell) for it.</p>
+<pre><code class=" hljs swift"><span class="hljs-keyword">infix</span> <span class="hljs-keyword">operator</span> &gt;&gt;- { <span class="hljs-keyword">associativity</span> <span class="hljs-keyword">left</span> }
+
+<span class="hljs-func"><span class="hljs-keyword">func</span> &gt;&gt;-<span class="hljs-generics">&lt;T, U&gt;</span><span class="hljs-params">(a: T?, f: T -&gt; U?)</span></span> -&gt; <span class="hljs-type">U</span>? {
+  <span class="hljs-keyword">return</span> a.flatMap(f)
+}
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> Unlike <code>&lt;$&gt;</code>, <code>&gt;&gt;=</code> would compile. I decided to use <code>&gt;&gt;-</code> to be in line with the library <a href="https://github.com/thoughtbot/Runes" target="_blank">Runes</a> which provides "Infix operators for monadic functions in Swif", and it's hopefully going to become the standard for this sort of things.</p>
+</blockquote>
+<p>Let’s see an example. Good ol’ Optional is a monad:</p>
+<p><img src="/simgs/course/mokacodingcontext.png" alt=""></p>
+<p>Just a monad hanging out</p>
+<p>Suppose <code>half</code> is a function that only works on even numbers:</p>
+<pre><code class=" hljs swift"><span class="hljs-func"><span class="hljs-keyword">func</span> <span class="hljs-title">half</span><span class="hljs-params">(a: Int)</span></span> -&gt; <span class="hljs-type">Int</span>? {
+  <span class="hljs-keyword">return</span> a % <span class="hljs-number">2</span> == <span class="hljs-number">0</span> ? a / <span class="hljs-number">2</span> : .<span class="hljs-type">None</span>
+}
+</code></pre>
+<p><img src="/simgs/course/mokacodinghalf.png" alt=""></p>
+<p>What if we feed it a wrapped value?</p>
+<p><img src="/simgs/course/mokacodinghalf_ouch.png" alt=""></p>
+<p>We need to use <code>&gt;&gt;-</code> (<code>&gt;&gt;=</code> in Haskell) to shove our wrapped value into the function. Here’s a photo of <code>&gt;&gt;-</code>:</p>
+<p><img src="/simgs/course/mokacodingplunger.jpg" alt=""></p>
+<p>Here’s how it works:</p>
+<pre><code class=" hljs swift"><span class="hljs-type">Optional</span>(<span class="hljs-number">3</span>) &gt;&gt;- half
+<span class="hljs-comment">// .None</span>
+<span class="hljs-type">Optional</span>(<span class="hljs-number">4</span>) &gt;&gt;- half
+<span class="hljs-comment">// 2</span>
+<span class="hljs-type">Optional</span>.<span class="hljs-type">None</span> &gt;&gt;- half
+<span class="hljs-comment">// .None</span>
+</code></pre>
+<p>What's happening inside? Let's look at <code>&gt;&gt;-</code>'s (<code>&gt;&gt;=</code> in Haskell) signature again:</p>
+<pre><code class=" hljs swift"><span class="hljs-comment">// For Optional</span>
+<span class="hljs-func"><span class="hljs-keyword">func</span> &gt;&gt;-<span class="hljs-generics">&lt;T, U&gt;</span><span class="hljs-params">(a: T?, f: T -&gt; U?)</span></span> -&gt; <span class="hljs-type">U</span>?
+
+<span class="hljs-comment">// For Array</span>
+<span class="hljs-func"><span class="hljs-keyword">func</span> &gt;&gt;-<span class="hljs-generics">&lt;T, U&gt;</span><span class="hljs-params">(a: [T], f: T -&gt; [U])</span></span> -&gt; [<span class="hljs-type">U</span>]
+</code></pre>
+<p><img src="/simgs/course/mokacodingbind_def.png" alt=""></p>
+<p>So <code>Optional</code> is a Monad. Here it is in action with a <code>.Some(3)</code>!</p>
+<p><img src="/simgs/course/mokacodingmonad_just.png" alt=""></p>
+<p>And if you pass in a <code>.None</code> it’s even simpler:</p>
+<p><img src="/simgs/course/mokacodingmonad_nothing.png" alt=""></p>
+<p>You can also chain these calls:</p>
+<pre><code class=" hljs swift"><span class="hljs-type">Optional</span>(<span class="hljs-number">20</span>) &gt;&gt;- half &gt;&gt;- half &gt;&gt;- half
+<span class="hljs-comment">// =&gt; .None</span>
+</code></pre>
+<p><img src="/simgs/course/mokacodingmonad_chain.png" alt=""></p>
+<blockquote>
+<p>NOte: the original article now describes Haskell's <code>IO</code> Monad. Swift doesn't have anything like that so this translation skips it.</p>
+</blockquote>
+<h1 id="conclusion">Conclusion</h1>
+<ol>
+<li>A functor is a type that implements <code>map</code>.</li>
+<li>An applicative is a type that implements <code>apply</code>.</li>
+<li>A monad is a type that implements <code>flatMap</code>.</li>
+<li><code>Optional</code> implements <code>map</code> and <code>flatMap</code>, plus we can extend it to implement <code>apply</code>, so it is a functor, an applicative, and a monad.</li>
+</ol>
+<p>What is the difference between the three?</p>
+<p><img src="/simgs/course/mokacodingrecap.png" alt=""></p>
+<ul>
+<li><strong>functors</strong>: you apply a function to a wrapped value using <code>map</code>.</li>
+<li><strong>applicatives</strong>: you apply a wrapped function to a wrapped value using <code>apply</code>, if defined.</li>
+<li><strong>monads</strong>: you apply a function that returns a wrapped value, to a wrapped value using <code>flatMap</code>.</li>
+</ul>
+<p>So, dear friend (I think we are friends by this point), I think we both agree that monads are easy and a SMART IDEA(tm). Now that you’ve wet your whistle on this guide, why not pull a Mel Gibson and grab the whole bottle. Check out LYAH’s <a href="http://learnyouahaskell.com/a-fistful-of-monads" target="_blank">section on Monads</a>. There’s a lot of things I’ve glossed over because Miran does a great job going in-depth with this stuff.</p>
+<blockquote>
+<p>Thanks for reading through this article, if you have any feedback, suggestion, or error to report please tweet me <a href="https://twitter.com/mokagio" target="_blank">@mokagio</a>, or leave a comment below.</p>
+<p>If you want to play around with the code head over to GitHub and <a href="https://github.com/mokacoding/Swift-Functors-Applicative-Monads-In-Pictures-Playground" target="_blank">clone the Playground</a></p>
+<p>Once again, thanks <a href="https://twitter.com/_egonschiele" target="_blank">Adit</a> for the wonderful post, and for all the other great ones on <a href="http://adit.io/index.html" target="_blank">the blog</a>.</p>
+</blockquote>
+<p><em>Happy coding, and leave the codebase better than you found it</em></p>
+</div><div class="/simgs/course/mokacodingtweet_button.9b77a1cb4bd14da06dfa5e2f65422c91.en.html"/simgs/course/mokacodingwidgets.js"></script><script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');
+</script></div></div><div id="paginator" class="bottom-box clearfixed"><div class="col-6"></div><div class="col-6"><div style="text-align: right"><a href="http://www.mokacoding.com/blog/xvim">XVim, harnessing the king of text editor's power in Xcode&nbsp;&gt;&gt;</a></div></div></div><div id="subscribe" class="bottom-box"><!-- Begin MailChimp Signup Form -->
+<div id="mc_embed_signup">
+  <form action="http://mokacoding.us10.list-manage.com/subscribe/post?u=45a265e2a9d2b9dbec5f98d51&id=0f2ccfb0fa" method="post" id="mc-embedded-subscribe-form" name="mc-embedded-subscribe-form" class="validate" target="_blank" novalidate="">
+    <div id="mc_embed_signup_scroll">
+    <label for="mce-EMAIL">Subscribe to our mailing list</label>
+    <input type="email" value="" name="EMAIL" class="email" id="mce-EMAIL" placeholder="email address" required="">
+    <!-- real people should not fill this in and expect good things - do not remove this or risk form bot signups-->
+    <div style="position: absolute; left: -5000px;"><input type="text" name="b_45a265e2a9d2b9dbec5f98d51_0f2ccfb0fa" tabindex="-1" value=""></div>
+    <div class="clear"><input type="submit" value="Subscribe" name="subscribe" id="mc-embedded-subscribe" class="button"></div>
+    </div>
+  </form>
+</div>
+</div><div class="/simgs/course/mokacodingsaved_resource.html"/simgs/course/mokacodingdisqus.js"></script><noscript>Please enable JavaScript to view the&lt;a href="https://disqus.com/?ref_noscript"&gt;comments powered by Disqus.&lt;/a&gt;</noscript></div></div></div></div><div class="row-12 footer"><div class="col-12"><h3><a href="http://www.mokacoding.com/">mokacoding</a></h3></div><div id="copy" class="col-9"><p>Hi I'm <a href="http://giovannilodi.com/" target="_blank">Giovanni Lodi</a> and this is my blog. I write here at least once a month, on software testing, productivity, and iOS development.</p>
+<p>I'm a freelance iOS engineer, and <a href="mailto:giovanni.lodi42+blog@gmail.com" target="_blank">I'm available for contract work</a>.</p>
+<p>Check out my <a href="http://mokagio.github.io/tech-journal" target="_blank">tech journal</a>, and my app <a href="https://itunes.apple.com/au/app/fineants-savings-tracker/id888444078?mt=8" target="_blank">Fineants</a>.</p>
+</div><div id="links" class="col-3"><p><i class="fa fa-twitter"></i>&nbsp;<a href="https://twitter.com/mokagio" target="_blank">@mokagio</a></p><p><i class="fa fa-github"></i>&nbsp;<a href="https://github.com/mokagio" target="_blank">mokagio</a></p></div></div></div><script>(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'UA-43554041-1', 'auto');
+ga('send', 'pageview');</script><script>var external_links = document.querySelectorAll('a:not([href^="/"]):not([href$="#subscribe"])');
+// external_links is an HTMLCollection, not an Array, so we can't call forEach
+for (var i = 0; i < external_links.length; i++) {
+  var link = external_links[i];
+  link.setAttribute("target", "_blank");
+}</script><script id="hiddenlpsubmitdiv" style="display: none;"></script><script>try{for(var lastpass_iter=0; lastpass_iter < document.forms.length; lastpass_iter++){ var lastpass_f = document.forms[lastpass_iter]; if(typeof(lastpass_f.lpsubmitorig2)=="undefined"){ lastpass_f.lpsubmitorig2 = lastpass_f.submit; if (typeof(lastpass_f.lpsubmitorig2)=='object'){ continue;}lastpass_f.submit = function(){ var form=this; var customEvent = document.createEvent("Event"); customEvent.initEvent("lpCustomEvent", true, true); var d = document.getElementById("hiddenlpsubmitdiv"); if (d) {for(var i = 0; i < document.forms.length; i++){ if(document.forms[i]==form){ if (typeof(d.innerText) != 'undefined') { d.innerText=i.toString(); } else { d.textContent=i.toString(); } } } d.dispatchEvent(customEvent); }form.lpsubmitorig2(); } } }}catch(e){}</script><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7573657117119544" crossorigin="anonymous"></script>
+</body></html>
